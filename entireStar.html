@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>星级评分模块化</title>
+	<style type="text/css">
+		*{
+			margin: 0;
+			padding: 0;
+		}
+		ul{
+			width: 75px;
+			height: 15px;
+			margin: 50px auto;
+		}
+		
+		.item{
+			float: left;
+			list-style-type: none;
+			width: 15px;
+			height: 15px;
+			cursor: pointer;
+		}
+		
+		
+	</style>
+</head>
+<body>
+	<ul class="star2">
+		<li class="item" title="很不好"></li>
+		<li class="item" title="不好"></li>
+		<li class="item" title="一般"></li>
+		<li class="item" title="好"></li>
+		<li class="item" title="很好"></li>
+	</ul>
+	<ul class="star">
+		<li class="item" title="很不好"></li>
+		<li class="item" title="不好"></li>
+		<li class="item" title="一般"></li>
+		<li class="item" title="好"></li>
+		<li class="item" title="很好"></li>
+	</ul>
+	<ul class="star1">
+		<li class="item" title="很不好"></li>
+		<li class="item" title="不好"></li>
+		<li class="item" title="一般"></li>
+		<li class="item" title="好"></li>
+		<li class="item" title="很好"></li>
+	</ul>
+	
+	<script type="text/javascript" src="js/jquery.js"></script>
+	<script type="text/javascript">
+		rating=(function () {
+			//不继承构造函数只继承方法
+			var extend = function(subClass,superClass){
+				var F = function(){};
+				F.prototype = superClass.prototype;
+				subClass.prototype = new F();
+				subClass.prototype.constructor = subClass;
+			};
+			//点亮星星
+			var LightOn = function(el,options){
+				this.$el = $(el);
+				this.$item = this.$el.find('.item');
+				this.opts = options;
+				this.add = 1;
+				this.event = 'mouseover';
+			};
+			LightOn.prototype.init = function() {
+				this.light(this.opts.num);
+				if(!this.opts.readOnly){
+					this.bindEvent();
+				}
+			};
+			LightOn.prototype.light = function(num) {
+				var count = parseInt(num);
+				this.$item.each(function(index){//this指向构造函数
+					if(index<num){
+						$(this).css('background-image','url(images/star-on.png)');//this指向当前元素
+					}else{
+						$(this).css('background-image','url(images/star-off.png)');
+					}
+			    });
+				
+			};
+			LightOn.prototype.select = function(e,$this){
+				if((e.pageX-$this.offset().left)<$this.width()/2){
+						this.add = 0.5;
+					}else{
+						this.add = 1;
+					}
+			};
+			LightOn.prototype.bindEvent = function(){
+				var self = this;//this指向构造函数
+				var itemLength = self.$item.length;
+				self.$el.on(self.event,'.item',function(e){
+					self.select(e,$(this));
+					var num = $(this).index()+self.add;
+					self.light(num);
+					//(typeof self.opts.select==='function')&&self.opts.select.call(this,num,itemLength);//把init里面的this的指向换成当前的this指向，即当前元素
+					(typeof self.opts.select==='function')&&self.opts.select.call(this,num,itemLength);
+					self.$el.trigger('select',[num,itemLength]);
+
+				}).on('click','.item',function(){
+					var num = $(this).index()+self.add;
+					self.opts.num = num;
+					(typeof self.opts.chosen==='function')&&self.opts.chosen.call(this,num,itemLength);
+					self.$el.trigger('chosen',[num,itemLength]);
+				}).on('mouseout',function(){
+					self.light(self.opts.num);
+				});
+
+			};
+			LightOn.prototype.unbindEvent = function(){
+				this.$el.off();//解除所有的绑定
+			}
+			//点亮整颗星星
+			var LightEntire = function(el,options){
+				LightOn.call(this,el,options);
+				this.event = 'mouseover';
+				
+
+			};
+			extend(LightEntire,LightOn);
+			
+			LightEntire.prototype.light = function(num) {
+				LightOn.prototype.light.call(this,num);
+			};
+			LightEntire.prototype.select = function(e,$this){
+				this.add = 1;
+			}
+			//点亮半颗星星
+			var LightHalf = function(el,options){
+				LightOn.call(this,el,options);
+				this.event = 'mousemove';
+				
+			}
+			extend(LightHalf,LightOn);
+			LightHalf.prototype.light = function(num) {
+				LightOn.prototype.light.call(this,num);
+				var count = parseInt(num);
+			    if(count!=num){
+				this.$item.eq(count).css('background-image','url(images/star-half.png)');
+				}
+				
+			};
+			LightHalf.prototype.select = function(e,$this){
+				if((e.pageX-$this.offset().left)<$this.width()/2){
+						this.add = 0.5;
+					}else{
+						this.add = 1;
+				}
+			}
+		
+			
+			var init=function(el,option){
+				var options = $.extend({},defaults,(typeof option==='object')&&option),
+					$el = $(el),
+					rating = $(el).data('rating');
+				// if(options.mode=='entire'){
+				// 	new LightEntire(el,options).init();
+				// }else{
+				// 	new LightHalf(el,options).init();
+				// }
+				if(!mode[options.mode])	{
+					options.mode = 'entire';
+				}
+				if(!rating){
+					$(el).data('rating',(rating=new mode[options.mode](el,options)));
+					rating.init();
+				}
+				if(typeof option === 'string'){
+					rating[option]();
+				}
+			};
+			//注册为jQuery插件
+			$.fn.extend({
+				rating:function(options){
+					return this.each(function(){
+						init(this,options);
+					});
+				}
+			});
+			var defaults = {
+				num:0,
+				readOnly:false,
+				mode:'entire',
+				select:function(){},
+				chosen:function(){}
+			};
+			var mode = {
+				entire : LightEntire,
+				half : LightHalf
+			};
+			return {
+				init:init
+			};
+		})();
+
+		//第一种调用方法
+		rating.init('.star',{
+			num:2,
+			select: function(num,total){
+				console.log(this);
+				console.log(num+'/'+total);
+			},
+			chosen:function(){
+				rating.init('.star','unbindEvent');
+			}
+		});
+
+		//第二种调用方法
+		rating.init('.star1',{num:3});
+		$('.star1').on('select',function(e,num,total){
+			console.log(this);
+			console.log(num+'/'+total);
+		});
+
+		//第三种调用方法
+		$('.star2').rating({
+			num:1.5,
+			mode:'half'
+
+		});
+		$('.star2').on('chosen',function(){
+			$('.star2').rating('unbindEvent');
+		});
+
+	</script>
+</body>
+</html>

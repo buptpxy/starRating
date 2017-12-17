@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>半颗星级评分</title>
+	<style type="text/css">
+	  *{
+	  	margin: 0;
+		padding: 0;
+	  }
+	  ul{
+	  	width: 75px;
+	  	height: 15px;
+	  	margin: 100px auto;
+	  }
+	  .item{
+	  	list-style: none;
+	  	float: left;
+	  	width: 15px;
+	  	height: 15px;
+	  	cursor: pointer;
+	  }
+	</style>
+</head>
+<body>
+	<ul id="star2">
+		<li class="item"></li>
+		<li class="item"></li>
+		<li class="item"></li>
+		<li class="item"></li>
+		<li class="item"></li>
+	</ul>
+	<ul id="star">
+		<li class="item"></li>
+		<li class="item"></li>
+		<li class="item"></li>
+		<li class="item"></li>
+		<li class="item"></li>
+	</ul>
+	<ul id="star1">
+		<li class="item"></li>
+		<li class="item"></li>
+		<li class="item"></li>
+		<li class="item"></li>
+		<li class="item"></li>
+	</ul>
+</body>
+<script type="text/javascript" src="js/jquery.js"></script>
+<script type="text/javascript">
+	var rating = (function(){
+		//第一种继承方法，原型链式的继承，连同构造函数一起继承，缺点是当构造函数比较庞大时浪费资源
+		//LightEntire.prototype = new LightOn();
+		//new LightEntire();
+		//第二种继承方法，只继承父类的原型的方法，不继承构造函数
+		var extend = function (subClass,superClass) {
+			var Fun = function () {};
+			Fun.prototype = superClass.prototype;//Fun只继承了方法，未继承构造函数
+			subClass.prototype = new Fun();//实例化Fun无构造函数
+			subClass.prototype.construtor = subClass;//把子类自己的构造函数赋给自己
+		};
+		//点亮星星
+		var LightOn = function (el,options) {
+			this.$el = $(el);
+			this.$item = this.$el.find('.item');
+			this.opts = options; 
+			this.add = 0;
+			this.selectEvent = 'mousemove';
+		};
+
+		//给构造函数的原型上添加方法,init即模板方法模式中的模板方法
+		//此处要执行的函数的初始化放在init()中，而requirejs的模块定义中这些方法的初始化都放在构造函数中
+		LightOn.prototype.init = function(){
+			this.light(this.opts.num);
+			if(!this.opts.readOnly){
+			this.bindEvent();
+			}
+		};
+		//根据传入的num数点亮星星
+		LightOn.prototype.light = function(num){
+			var count = parseInt(num);	
+			this.$item.each(function(index){
+				if(index<count){
+					$(this).css('background-image','url(images/star-on.png)');
+				}else {
+					$(this).css('background-image','url(images/star-off.png)');
+				}
+			}); 	
+		};
+
+		LightOn.prototype.select = function(e,$this){
+			throw new Error('子类必须重写此方法');
+		};
+		LightOn.prototype.bindEvent = function(){
+			var self = this;
+			var num=0;
+			self.$el.on(self.selectEvent,'.item',function (e) {
+				self.select(e,$(this));
+				num = $(this).index()+self.add;
+				self.light(num);
+				if(typeof self.opts.select ==='function'){
+					self.opts.select.call(this,num,self.$item.length);
+					self.$el.trigger('select',[num,self.$item.length]);
+				}
+			}).on('click','.item',function (e) {
+				self.select(e,$(this));
+				num = $(this).index()+self.add;
+				self.opts.num = num;
+				if(typeof self.opts.chosen ==='function'){
+					self.opts.chosen.call(this,num,self.$item.length);
+					self.$el.trigger('chosen',[num,self.$item.length]);
+				}
+
+			}).on('mouseout',function () {
+				self.light(self.opts.num);
+			});
+		};
+		LightOn.prototype.unbindEvent = function(){
+			this.$el.off(); 
+		};
+		//点亮整颗星星
+		var LightEntire = function (el,options) {
+			LightOn.call(this,el,options);//继承父类的构造函数
+			this.selectEvent = 'mouseover';
+		}
+		extend(LightEntire,LightOn);//继承父类的方法
+		//init跟父类的一模一样故不用重写
+		
+		LightEntire.prototype.light = function(num){
+			LightOn.prototype.light.call(this,num);//调用父类的方法，并用自己的this覆盖父类的this
+		};
+		LightEntire.prototype.select = function(e,$this){
+			this.add = 1;
+		};
+		//bindEvent跟父类的一模一样故不用重写
+		
+
+		//点亮半颗星星
+		var LightHalf = function (el,options) {
+			LightOn.call(this,el,options);
+			this.selectEvent = 'mousemove';
+		}
+		extend(LightHalf,LightOn);//继承父类的方法
+		//init跟父类的一模一样故不用重写
+		LightHalf.prototype.light = function(num){
+			LightOn.prototype.light.call(this,num);//调用父类的方法，并用自己的this覆盖父类的this
+			var count = parseInt(num);
+			if(count!=num){
+				this.$item.eq(count).css('background-image','url(images/star-half.png)');
+			}
+		};
+		LightHalf.prototype.select = function(e,$this){
+			if(e.pageX-$this.offset().left<$this.width()/2) {//判断鼠标点击的位置距最左边的距离与当前星星距最左边的距离只差是否小于星星宽度的1/2
+				this.add = 0.5;
+			}else {
+				this.add = 1;
+			}
+		};
+		//bindEvent跟父类的一模一样故不用重写
+
+		//初始化
+		var init = function (el,option) {
+			var options = $.extend({},defaults,(typeof option === 'object') && option);
+			var $el = $(el),
+				rating = $el.data('rating');
+			// new LightHalf(el,options).init();//这里调用的init()是指LightHalf.prototype.init()
+			// new LightEntire(el,options).init();
+			if(!mode[options.mode]){
+				options.mode = 'entire';
+			}
+			if(!rating){
+				$el.data('rating',(rating=new mode[options.mode](el,options)));
+				rating.init();
+			}
+			if(typeof option==='string'){
+				rating.unbindEvent();
+			}
+		};
+
+		//注册为jquery组件
+		$.fn.extend({
+			rating : function (obj) {
+				return this.each(function () {
+					new rating.init(this,obj);
+				});
+			}
+		});
+		//默认值
+		var defaults = {
+			mode:'half',
+			num :2.5,
+			readOnly:false,
+			select:function(){},
+			chosen:function(){}
+		};
+		var mode = {
+			'entire' :LightEntire,//'entire'对应LightEntire这个构造函数
+			'half' : LightHalf
+		};
+		//返回值，供外部调用
+		return {
+			init:init
+		};
+	})();
+
+
+	//第一种调用方法
+	rating.init('#star',{
+		num:3.5,
+		readOnly:false,
+		// select:function (num,total) {
+		// 	console.log(this);
+		// 	console.log('select:'+num+'/'+total);
+		// },
+		chosen:function () {
+			rating.init('#star','unbindEvent');
+		}
+	});
+
+	//第二种调用方法
+    rating.init('#star1');
+	$('#star1').on('select',function (e,num,total) {
+		console.log('select:'+num+'/'+total);
+	}).on('chosen',function (e,num,total) {
+		console.log('chosen:'+num+'/'+total);
+	});
+
+	//第三种调用方法
+	$('#star2').rating({
+		num:1,
+		mode:'lkklho'	
+	});
+	$('#star2').on('chosen',function () {
+		$('#star2').rating('unbindEvent');
+	});
+</script>
+</html>
